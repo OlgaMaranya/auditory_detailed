@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Отчёт по аудиториям</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f6fa;
+            color: #2d3436;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .period-selector {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .period-selector h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        .form-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-refresh {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .cache-status {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cache-info {
+            display: flex;
+            gap: 20px;
+        }
+        .cache-item {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .cache-item strong {
+            color: #667eea;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .tab {
+            padding: 12px 25px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .tab:hover:not(.active) {
+            background: #d0d0d0;
+        }
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .card h3 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .card p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .chart-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #667eea;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background: #f5f6fa;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #667eea;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .filters {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .filters select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+        .source-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .source-cache {
+            background: #d4edda;
+            color: #155724;
+        }
+        .source-database {
+            background: #cce5ff;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Отчёт по эффективности использования аудиторного фонда</h1>
+            <p>Интерактивная система анализа загруженности аудиторий</p>
+        </header>
+
+        <div class="period-selector">
+            <h2>📅 Выбор периода отчетности</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start-date">Дата начала:</label>
+                    <input type="date" id="start-date" value="{{ default_start }}">
+                </div>
+                <div class="form-group">
+                    <label for="end-date">Дата окончания:</label>
+                    <input type="date" id="end-date" value="{{ default_end }}">
+                </div>
+                <button onclick="loadData()" id="load-btn">📊 Построить отчёт</button>
+                <button onclick="loadData(true)" class="btn-refresh" id="refresh-btn">🔄 Обновить из БД</button>
+            </div>
+        </div>
+
+        <div class="cache-status">
+            <div class="cache-info">
+                <div class="cache-item">
+                    <strong>Источник:</strong> <span id="data-source">-</span>
+                </div>
+                <div class="cache-item">
+                    <strong>Свободных слотов:</strong> <span id="free-count">-</span>
+                </div>
+                <div class="cache-item">
+                    <strong>Занятых слотов:</strong> <span id="occupied-count">-</span>
+                </div>
+            </div>
+            <button onclick="clearCache()" style="padding: 8px 20px; font-size: 14px;">🗑️ Очистить кэш</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('summary')">📈 Сводка</button>
+            <button class="tab" onclick="switchTab('free')">🟢 Свободные слоты</button>
+            <button class="tab" onclick="switchTab('detailed')">📚 Загрузка</button>
+            <button class="tab" onclick="switchTab('pattern')">🔥 Паттерны</button>
+        </div>
+
+        <div id="summary" class="tab-content active">
+            <div class="summary-cards" id="summary-cards">
+                <div class="loading">Выберите период и нажмите "Построить отчёт"</div>
+            </div>
+        </div>
+
+        <div id="free" class="tab-content">
+            <div class="filters" id="free-filters"></div>
+            <div class="chart-container">
+                <div id="chart-free-bar"></div>
+            </div>
+            <div class="chart-container">
+                <div id="chart-free-heatmap"></div>
+            </div>
+            <div class="table-container">
+                <table id="table-free"></table>
+            </div>
+        </div>
+
+        <div id="detailed" class="tab-content">
+            <div class="filters" id="detailed-filters"></div>
+            <div class="chart-container">
+                <div id="chart-scatter"></div>
+            </div>
+            <div class="chart-container">
+                <div id="chart-hist"></div>
+            </div>
+            <div class="table-container">
+                <table id="table-detailed"></table>
+            </div>
+        </div>
+
+        <div id="pattern" class="tab-content">
+            <div class="filters" id="pattern-filters"></div>
+            <div class="chart-container">
+                <div id="chart-pattern-heatmap"></div>
+            </div>
+            <div class="table-container">
+                <table id="table-pattern"></table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function loadData(forceRefresh = false) {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const loadBtn = document.getElementById('load-btn');
+            const refreshBtn = document.getElementById('refresh-btn');
+
+            if (!startDate || !endDate) {
+                alert('Пожалуйста, выберите даты периода');
+                return;
+            }
+
+            loadBtn.disabled = true;
+            refreshBtn.disabled = true;
+            loadBtn.textContent = '⏳ Загрузка...';
+
+            try {
+                const url = `/api/reports?start_date=${startDate}&end_date=${endDate}&force_refresh=${forceRefresh}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
+                }
+
+                currentData = await response.json();
+                
+                // Обновляем статус
+                document.getElementById('data-source').innerHTML = 
+                    `<span class="source-badge source-${currentData.source}">${currentData.source === 'cache' ? 'Кэш' : 'База данных'}</span>`;
+                document.getElementById('free-count').textContent = currentData.free_slots_count;
+                document.getElementById('occupied-count').textContent = currentData.detailed_count;
+
+                // Рендерим сводку
+                renderSummary();
+                
+                // Рендерим вкладки
+                renderFreeTab();
+                renderDetailedTab();
+                renderPatternTab();
+
+                alert(`✅ Данные загружены!\nИсточник: ${currentData.source === 'cache' ? 'Кэш' : 'База данных'}\nСвободных слотов: ${currentData.free_slots_count}\nЗанятых слотов: ${currentData.detailed_count}`);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Ошибка: ${error.message}`);
+            } finally {
+                loadBtn.disabled = false;
+                refreshBtn.disabled = false;
+                loadBtn.textContent = '📊 Построить отчёт';
+            }
+        }
+
+        async function loadSummary() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            try {
+                const response = await fetch(`/api/reports/summary?start_date=${startDate}&end_date=${endDate}`);
+                const summary = await response.json();
+                
+                document.getElementById('summary-cards').innerHTML = `
+                    <div class="card">
+                        <h3>${summary.total_auditories}</h3>
+                        <p>Всего аудиторий</p>
+                    </div>
+                    <div class="card">
+                        <h3>${summary.occupied_slots}</h3>
+                        <p>Занятых слотов</p>
+                    </div>
+                    <div class="card">
+                        <h3>${summary.free_slots}</h3>
+                        <p>Свободных слотов</p>
+                    </div>
+                    <div class="card">
+                        <h3>${summary.free_percentage}%</h3>
+                        <p>Процент свободных</p>
+                    </div>
+                    <div class="card">
+                        <h3>${summary.avg_attendance}%</h3>
+                        <p>Средняя посещаемость</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading summary:', error);
+            }
+        }
+
+        function renderSummary() {
+            loadSummary();
+        }
+
+        function renderFreeTab() {
+            if (!currentData || !currentData.free || currentData.free.length === 0) {
+                document.getElementById('free-filters').innerHTML = '<p>Нет данных</p>';
+                return;
+            }
+
+            // Топ-10 свободных аудиторий
+            const audCount = {};
+            currentData.free.forEach(slot => {
+                audCount[slot['Аудитория']] = (audCount[slot['Аудитория']] || 0) + 1;
+            });
+            const top10 = Object.entries(audCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            const traceBar = {
+                x: top10.map(x => x[1]),
+                y: top10.map(x => x[0]),
+                type: 'bar',
+                orientation: 'h',
+                marker: { color: '#667eea' }
+            };
+
+            Plotly.newPlot('chart-free-bar', [traceBar], {
+                title: 'Топ-10 самых свободных аудиторий',
+                xaxis: { title: 'Количество свободных слотов' },
+                yaxis: { title: 'Аудитория' },
+                margin: { l: 150, t: 50, r: 20, b: 50 }
+            }, { responsive: true });
+
+            // Тепловая карта
+            const heatmapData = {};
+            const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            currentData.free.forEach(slot => {
+                const key = `${slot['День недели']}_${slot['Пара']}`;
+                heatmapData[key] = (heatmapData[key] || 0) + 1;
+            });
+
+            const z = dayOrder.map(day => 
+                Array.from({length: 9}, (_, i) => heatmapData[`${day}_${i+1}`] || 0)
+            );
+
+            const traceHeatmap = {
+                z: z,
+                x: Array.from({length: 9}, (_, i) => i + 1),
+                y: dayOrder,
+                type: 'heatmap',
+                colorscale: 'Blues'
+            };
+
+            Plotly.newPlot('chart-free-heatmap', [traceHeatmap], {
+                title: 'Свободные слоты по дням и парам',
+                xaxis: { title: 'Пара', dtick: 1 },
+                yaxis: { title: 'День недели' }
+            }, { responsive: true });
+
+            // Таблица
+            const tableFree = document.getElementById('table-free');
+            if (currentData.free.length > 0) {
+                const headers = Object.keys(currentData.free[0]);
+                tableFree.innerHTML = `
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${currentData.free.slice(0, 100).map(row => 
+                            `<tr>${headers.map(h => `<td>${row[h] !== null ? row[h] : ''}</td>`).join('')}</tr>`
+                        ).join('')}
+                    </tbody>
+                `;
+            }
+        }
+
+        function renderDetailedTab() {
+            if (!currentData || !currentData.detailed || currentData.detailed.length === 0) {
+                document.getElementById('detailed-filters').innerHTML = '<p>Нет данных</p>';
+                return;
+            }
+
+            const planCol = 'Общее количество студентов с учетом подгрупп (ПЛАН)';
+            const factCol = 'Фактическое посещение (ФАКТ)';
+            const rateCol = 'Процент посещаемости (факт/план * 100%)';
+
+            // Scatter plot
+            const traceScatter = {
+                x: currentData.detailed.map(r => r[planCol] || 0),
+                y: currentData.detailed.map(r => r[factCol] || 0),
+                mode: 'markers',
+                type: 'scatter',
+                marker: { 
+                    size: 8,
+                    color: '#764ba2',
+                    opacity: 0.6
+                }
+            };
+
+            Plotly.newPlot('chart-scatter', [traceScatter], {
+                title: 'План vs Факт посещаемости',
+                xaxis: { title: 'Плановое количество студентов' },
+                yaxis: { title: 'Фактическое посещение' }
+            }, { responsive: true });
+
+            // Histogram
+            const attendanceRates = currentData.detailed
+                .map(r => r[rateCol] || 0)
+                .filter(v => v > 0 && v <= 100);
+
+            const traceHist = {
+                x: attendanceRates,
+                type: 'histogram',
+                nbinsx: 50,
+                marker: { color: '#11998e' }
+            };
+
+            Plotly.newPlot('chart-hist', [traceHist], {
+                title: 'Распределение посещаемости (%)',
+                xaxis: { title: 'Посещаемость (%)' },
+                yaxis: { title: 'Количество занятий' }
+            }, { responsive: true });
+
+            // Таблица
+            const tableDetailed = document.getElementById('table-detailed');
+            if (currentData.detailed.length > 0) {
+                const headers = ['Дата/время занятия', 'Аудитория', 'Тип помещения', 'Дисциплина', 'Группа', 'План', 'Факт', 'Посещаемость %'];
+                tableDetailed.innerHTML = `
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${currentData.detailed.slice(0, 100).map(row => `
+                            <tr>
+                                <td>${row['Дата/время занятия'] || ''}</td>
+                                <td>${row['Аудитория'] || ''}</td>
+                                <td>${row['Тип помещения'] || ''}</td>
+                                <td>${row['Дисциплина'] || ''}</td>
+                                <td>${row['Список групп на этом занятии'] || ''}</td>
+                                <td>${Math.round(row[planCol] || 0)}</td>
+                                <td>${Math.round(row[factCol] || 0)}</td>
+                                <td>${(row[rateCol] || 0).toFixed(1)}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+            }
+        }
+
+        function renderPatternTab() {
+            if (!currentData || !currentData.pattern || currentData.pattern.length === 0) {
+                document.getElementById('pattern-filters').innerHTML = '<p>Нет данных</p>';
+                return;
+            }
+
+            // Упрощенная визуализация паттернов
+            const patternByDay = {};
+            const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            
+            currentData.pattern.forEach(p => {
+                const key = `${p['День недели']}_${p['Пара']}`;
+                if (!patternByDay[key]) {
+                    patternByDay[key] = { sum: 0, count: 0 };
+                }
+                patternByDay[key].sum += p['Процент занятости'] || 0;
+                patternByDay[key].count++;
+            });
+
+            const z = dayOrder.map(day => 
+                Array.from({length: 9}, (_, i) => {
+                    const key = `${day}_${i+1}`;
+                    const data = patternByDay[key];
+                    return data ? Math.round(data.sum / data.count) : 0;
+                })
+            );
+
+            const traceHeatmap = {
+                z: z,
+                x: Array.from({length: 9}, (_, i) => i + 1),
+                y: dayOrder,
+                type: 'heatmap',
+                colorscale: 'Reds',
+                zmin: 0,
+                zmax: 100
+            };
+
+            Plotly.newPlot('chart-pattern-heatmap', [traceHeatmap], {
+                title: 'Средняя занятость аудиторий по дням и парам (%)',
+                xaxis: { title: 'Пара', dtick: 1 },
+                yaxis: { title: 'День недели' }
+            }, { responsive: true });
+
+            // Таблица
+            const tablePattern = document.getElementById('table-pattern');
+            if (currentData.pattern.length > 0) {
+                const headers = ['Аудитория', 'День недели', 'Пара', 'Тип недели', 'Процент занятости'];
+                tablePattern.innerHTML = `
+                    <thead>
+                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${currentData.pattern.slice(0, 100).map(row => `
+                            <tr>
+                                <td>${row['Аудитория'] || ''}</td>
+                                <td>${row['День недели'] || ''}</td>
+                                <td>${row['Пара'] || ''}</td>
+                                <td>${row['Тип недели'] || ''}</td>
+                                <td>${(row['Процент занятости'] || 0).toFixed(1)}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+            }
+        }
+
+        async function clearCache() {
+            if (!confirm('Вы уверены, что хотите очистить кэш?')) return;
+
+            try {
+                const response = await fetch('/api/cache/clear', { method: 'DELETE' });
+                const result = await response.json();
+                alert(`✅ ${result.message}`);
+                document.getElementById('data-source').textContent = '-';
+                document.getElementById('free-count').textContent = '-';
+                document.getElementById('occupied-count').textContent = '-';
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Приложение готово к работе');
+        });
+    </script>
+</body>
+</html>
