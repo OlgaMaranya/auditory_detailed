@@ -478,17 +478,20 @@ app = FastAPI(
 )
 
 # Шаблоны и статика
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="templates", context_processors=[])
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     """Главная страница с интерфейсом выбора периода."""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "default_start": DEFAULT_START_DATE,
-        "default_end": DEFAULT_END_DATE
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "default_start": DEFAULT_START_DATE,
+            "default_end": DEFAULT_END_DATE
+        }
+    )
 
 
 @app.get("/api/reports")
