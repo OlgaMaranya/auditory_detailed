@@ -14,7 +14,7 @@ from sqlalchemy import create_engine, text
 import urllib.parse
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
@@ -473,6 +473,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="📊 Сервис анализа аудиторного фонда",
     description="Микросервис для построения отчетов по эффективности использования аудиторий",
+    default_response_class=ORJSONResponse,
     version="1.0.0",
     lifespan=lifespan
 )
