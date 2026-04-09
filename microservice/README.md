@@ -12,7 +12,7 @@
 ### 1. Установка зависимостей
 
 ```bash
-pip install fastapi uvicorn pandas numpy sqlalchemy pymysql plotly jinja2 python-multipart
+pip install fastapi uvicorn pandas numpy sqlalchemy pymysql plotly jinja2 python-multipart orjson
 ```
 
 Или используйте requirements.txt:
