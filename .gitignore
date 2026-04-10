@@ -1,13 +1,1 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-
-# Logs and temp files
-*.log
-
-# Environment
-.env
-.env.local
-*.env.*
-```
+(empty)
