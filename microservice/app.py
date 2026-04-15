@@ -90,6 +90,69 @@ def get_week_type_from_date(date_str) -> str:
     return 'числитель' if weeks_passed % 2 == 0 else 'знаменатель'
 
 
+def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame]:
+    """Генерирует тестовые данные для демонстрации работы интерфейса."""
+    print("⚠️ Генерация тестовых данных (БД недоступна)...")
+    
+    # Тестовые аудитории
+    df_auditories = pd.DataFrame({
+        'id': [1, 2, 3, 4, 5],
+        'name': ['А-101', 'А-102', 'Б-201', 'Б-202', 'В-301'],
+        'type_name': ['Лекционная', 'Лекционная', 'Практическая', 'Практическая', 'Лаборатория']
+    })
+    
+    # Тестовые занятые слоты
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    weekdays = dates[dates.dayofweek < 6]  # Только будние дни
+    
+    test_occupied = []
+    groups = ['ИВТ-41', 'ИВТ-42', 'ЭУ-31', 'ЭУ-32', 'ЖД-21']
+    disciplines = ['Математика', 'Физика', 'Программирование', 'Базы данных', 'Сети']
+    lesson_types = ['Лекция', 'Практика', 'Лабораторная']
+    
+    for i, date in enumerate(weekdays[:20]):  # Ограничим 20 днями
+        if date.dayofweek < 6:  # Пн-Пт
+            day_name = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.dayofweek]
+            for pair in range(1, 6):  # Пары 1-5
+                time_str = ['08:30:00', '10:10:00', '12:10:00', '13:50:00', '15:30:00'][pair-1]
+                # Заполняем ~60% слотов
+                if (i + pair) % 3 != 0:
+                    aud_idx = (i + pair) % 5
+                    test_occupied.append({
+                        'auditory_id': df_auditories.iloc[aud_idx]['id'],
+                        'auditory_name': df_auditories.iloc[aud_idx]['name'],
+                        'type_name': df_auditories.iloc[aud_idx]['type_name'],
+                        'building_name': f'Корпус {["А", "Б", "В"][aud_idx // 2]}',
+                        'department_name': f'Факультет {aud_idx + 1}',
+                        'sched_done_id': i * 10 + pair,
+                        'lec_date': date.strftime('%Y-%m-%d'),
+                        'title': disciplines[i % len(disciplines)],
+                        'group_id': 100 + i % 5,
+                        'subgroup': 0,
+                        'lec_type': i % 3,
+                        'aud_id': df_auditories.iloc[aud_idx]['id'],
+                        'is_present': 1,
+                        'all_absence': 0,
+                        'sched_error': 0,
+                        'special_type': None,
+                        'group_name': groups[i % len(groups)],
+                        'lesson_type_name': lesson_types[i % 3],
+                        'present_count': 20 + (i % 10),
+                        'plan_count': 25 + (i % 5)
+                    })
+    
+    df_occupied = pd.DataFrame(test_occupied)
+    df_presence = pd.DataFrame({'sched_done_id': [], 'present_count': []})
+    df_courses = pd.DataFrame({'group_id': [], 'subgroup': [], 'plan_count': []})
+    
+    return {
+        'auditories': df_auditories,
+        'occupied': df_occupied,
+        'presence': df_presence,
+        'courses': df_courses
+    }
+
+
 def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame]:
     """Загружает все необходимые данные из базы данных."""
     
@@ -160,31 +223,36 @@ def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
     GROUP BY c.group_id, c.subgroup;
     """
     
-    with engine.connect() as conn:
-        # Загружаем аудитории
-        df_auditories = pd.read_sql(query_auditories, conn)
+    try:
+        with engine.connect() as conn:
+            # Загружаем аудитории
+            df_auditories = pd.read_sql(query_auditories, conn)
+            
+            # Загружаем занятые слоты
+            df_occupied = pd.read_sql(query_occupied, conn)
+            
+            # Загружаем посещаемость
+            try:
+                df_presence = pd.read_sql(query_presence, conn)
+            except Exception:
+                df_presence = pd.DataFrame({'sched_done_id': [], 'present_count': []})
+            
+            # Загружаем количество студентов в группах
+            try:
+                df_courses = pd.read_sql(query_courses, conn)
+            except Exception:
+                df_courses = pd.DataFrame({'group_id': [], 'subgroup': [], 'plan_count': []})
         
-        # Загружаем занятые слоты
-        df_occupied = pd.read_sql(query_occupied, conn)
-        
-        # Загружаем посещаемость
-        try:
-            df_presence = pd.read_sql(query_presence, conn)
-        except Exception:
-            df_presence = pd.DataFrame({'sched_done_id': [], 'present_count': []})
-        
-        # Загружаем количество студентов в группах
-        try:
-            df_courses = pd.read_sql(query_courses, conn)
-        except Exception:
-            df_courses = pd.DataFrame({'group_id': [], 'subgroup': [], 'plan_count': []})
-    
-    return {
-        'auditories': df_auditories,
-        'occupied': df_occupied,
-        'presence': df_presence,
-        'courses': df_courses
-    }
+        return {
+            'auditories': df_auditories,
+            'occupied': df_occupied,
+            'presence': df_presence,
+            'courses': df_courses
+        }
+    except Exception as e:
+        print(f"❌ Ошибка подключения к БД: {e}")
+        print("🔄 Используем тестовые данные для демонстрации...")
+        return generate_test_data(start_date, end_date)
 
 
 def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
@@ -265,6 +333,11 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         'Sunday': 'Вс'
     }
     df_occupied['День недели'] = df_occupied['День недели'].map(day_map)
+    
+    # Добавляем day_of_week_num, time_start, week_type для совместимости с merge
+    df_occupied['day_of_week_num'] = df_occupied['datetime_parsed'].dt.dayofweek + 2  # Monday=2, ..., Sunday=8
+    df_occupied['time_start'] = df_occupied['time_part']
+    df_occupied['week_type'] = df_occupied['Тип недели']
     
     # Генерация всех возможных слотов
     start_dt = pd.to_datetime(CONFIG['period']['start_date'] if 'period' in CONFIG else df_occupied['datetime_parsed'].min())
@@ -379,17 +452,22 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     # === Конвертация типов данных для JSON ===
     def convert_to_json_serializable(df):
         """Конвертировать DataFrame в JSON-сериализуемый формат"""
-        for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                df[col] = df[col].astype(str)
-            elif pd.api.types.is_numeric_dtype(df[col]):
-                df[col] = df[col].fillna(0).astype(float)
+        df_copy = df.copy()
+        for col in df_copy.columns:
+            # Сбрасываем Categorical тип
+            if isinstance(df_copy[col].dtype, pd.CategoricalDtype):
+                df_copy[col] = df_copy[col].astype(object)
+            
+            if pd.api.types.is_datetime64_any_dtype(df_copy[col]):
+                df_copy[col] = df_copy[col].astype(str)
+            elif pd.api.types.is_numeric_dtype(df_copy[col]):
+                df_copy[col] = df_copy[col].fillna(0).astype(float)
             else:
-                df[col] = df[col].fillna('').astype(str)
-        return df
+                df_copy[col] = df_copy[col].fillna('').astype(str)
+        return df_copy
 
-    df_free_json = convert_to_json_serializable(df_free_slots.copy())
-    df_detailed_json = convert_to_json_serializable(df_occupied.copy())
+    df_free_json = convert_to_json_serializable(df_free_slots)
+    df_detailed_json = convert_to_json_serializable(df_occupied)
 
     return {
         'free': df_free_json,
@@ -449,6 +527,9 @@ def generate_pattern_data(df_detailed: pd.DataFrame, start_date: str, end_date: 
         df_detailed_for_pattern = df_detailed.copy()
         
         def round_to_nearest_monday(date):
+            # Конвертируем в datetime если это строка
+            if isinstance(date, str):
+                date = pd.to_datetime(date, format='mixed', dayfirst=True)
             mon = date - pd.Timedelta(days=date.weekday())
             available_mondays = weeks.normalize()
             diff = (available_mondays - mon.normalize()).to_series().abs()

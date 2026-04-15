@@ -5,33 +5,19 @@ __pycache__/
 
 # Logs
 *.log
-
-# Environment files
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
+server.log
 
 # Dependencies
 .venv/
 venv/
 node_modules/
 
-# Build artifacts
-dist/
-build/
-target/
+# Editors
+.vscode/
+.idea/
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Cache
-.mypy_cache/
-.pytest_cache/
-.gradle/
+# Environment
+.env
+.env.local
+*.env.*
 ```
