@@ -356,7 +356,12 @@
         <div id="pattern" class="tab-content">
             <div class="filters" id="pattern-filters"></div>
             <div class="chart-container">
-                <div id="chart-pattern-heatmap"></div>
+                <h3>Числитель</h3>
+                <div id="chart-pattern-numerator"></div>
+            </div>
+            <div class="chart-container">
+                <h3>Знаменатель</h3>
+                <div id="chart-pattern-denominator"></div>
             </div>
             <div class="table-container">
                 <table id="table-pattern"></table>
@@ -734,7 +739,8 @@
         function renderPatternTab() {
             if (!currentData || !currentData.pattern || !Array.isArray(currentData.pattern) || currentData.pattern.length === 0) {
                 document.getElementById('pattern-filters').innerHTML = '<p>Нет данных для отображения паттернов</p>';
-                document.getElementById('chart-pattern-heatmap').innerHTML = '';
+                document.getElementById('chart-pattern-numerator').innerHTML = '';
+                document.getElementById('chart-pattern-denominator').innerHTML = '';
                 document.getElementById('table-pattern').innerHTML = '';
                 return;
             }
@@ -842,6 +848,7 @@
                 })
             );
 
+            // Тепловая карта для числителя
             const traceNumerator = {
                 z: zNumerator,
                 x: Array.from({length: 9}, (_, i) => i + 1),
@@ -853,23 +860,32 @@
                 name: 'Числитель'
             };
 
+            // Тепловая карта для знаменателя
             const traceDenominator = {
                 z: zDenominator,
                 x: Array.from({length: 9}, (_, i) => i + 1),
                 y: dayOrder,
                 type: 'heatmap',
-                colorscale: 'Reds',
+                colorscale: 'Blues',
                 zmin: 0,
                 zmax: 100,
-                name: 'Знаменатель',
-                showscale: false
+                name: 'Знаменатель'
             };
 
-            Plotly.newPlot('chart-pattern-heatmap', [traceNumerator, traceDenominator], {
-                title: 'Занятость аудиторий по дням и парам (%)',
+            // Рисуем первую тепловую карту - числитель
+            Plotly.newPlot('chart-pattern-numerator', [traceNumerator], {
+                title: 'Числитель - Занятость аудиторий по дням и парам (%)',
                 xaxis: { title: 'Пара', dtick: 1 },
                 yaxis: { title: 'День недели' },
-                showlegend: true
+                showlegend: false
+            }, { responsive: true });
+
+            // Рисуем вторую тепловую карту - знаменатель
+            Plotly.newPlot('chart-pattern-denominator', [traceDenominator], {
+                title: 'Знаменатель - Занятость аудиторий по дням и парам (%)',
+                xaxis: { title: 'Пара', dtick: 1 },
+                yaxis: { title: 'День недели' },
+                showlegend: false
             }, { responsive: true });
         }
 
