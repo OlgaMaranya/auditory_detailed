@@ -1,16 +1,7 @@
 ```
-# Compiled and build artifacts
+# Compiled Python files
 *.pyc
 __pycache__/
-*.o
-*.obj
-dist/
-build/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
 
 # Logs and temp files
 *.log
@@ -20,7 +11,7 @@ node_modules/
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
