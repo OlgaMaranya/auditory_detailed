@@ -1,0 +1,8 @@
+OpenBLAS WARNING - could not determine the L2 cache size on this system, assuming 256k
+INFO:     Will watch for changes in these directories: ['/workspace/microservice']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [2788] using StatReload
+OpenBLAS WARNING - could not determine the L2 cache size on this system, assuming 256k
+INFO:     Started server process [2803]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

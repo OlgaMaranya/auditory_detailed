@@ -580,8 +580,10 @@
         }
 
         function renderPatternTab() {
-            if (!currentData || !currentData.pattern || currentData.pattern.length === 0) {
-                document.getElementById('pattern-filters').innerHTML = '<p>Нет данных</p>';
+            if (!currentData || !currentData.pattern || !Array.isArray(currentData.pattern) || currentData.pattern.length === 0) {
+                document.getElementById('pattern-filters').innerHTML = '<p>Нет данных для отображения паттернов</p>';
+                document.getElementById('chart-pattern-heatmap').innerHTML = '';
+                document.getElementById('table-pattern').innerHTML = '';
                 return;
             }
 
@@ -589,13 +591,17 @@
             const patternByDay = {};
             const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
             
+            // Проверяем, что каждый элемент имеет нужные поля
             currentData.pattern.forEach(p => {
-                const key = `${p['День недели']}_${p['Пара']}`;
-                if (!patternByDay[key]) {
-                    patternByDay[key] = { sum: 0, count: 0 };
+                if (p && typeof p === 'object' && p['День недели'] && p['Пара'] !== undefined) {
+                    const key = `${p['День недели']}_${p['Пара']}`;
+                    if (!patternByDay[key]) {
+                        patternByDay[key] = { sum: 0, count: 0 };
+                    }
+                    const occupancy = parseFloat(p['Процент занятости']) || 0;
+                    patternByDay[key].sum += occupancy;
+                    patternByDay[key].count++;
                 }
-                patternByDay[key].sum += p['Процент занятости'] || 0;
-                patternByDay[key].count++;
             });
 
             const z = dayOrder.map(day => 
@@ -637,7 +643,7 @@
                                 <td>${row['День недели'] || ''}</td>
                                 <td>${row['Пара'] || ''}</td>
                                 <td>${row['Тип недели'] || ''}</td>
-                                <td>${(row['Процент занятости'] || 0).toFixed(1)}%</td>
+                                <td>${(parseFloat(row['Процент занятости']) || 0).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
