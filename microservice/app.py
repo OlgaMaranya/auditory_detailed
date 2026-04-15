@@ -399,6 +399,20 @@ def generate_pattern_data(df_detailed: pd.DataFrame, start_date: str, end_date: 
         return 'числитель' if weeks_passed % 2 == 0 else 'знаменатель'
     
     auditoriums = df_detailed['Аудитория'].unique() if 'Аудитория' in df_detailed.columns else []
+    
+    # Если нет аудиторий, возвращаем пустой DataFrame с правильной структурой
+    if len(auditoriums) == 0:
+        return pd.DataFrame({
+            'Аудитория': [],
+            'День недели': [],
+            'Пара': [],
+            'Тип недели': [],
+            'Тип помещения': [],
+            'Всего недель': [],
+            'Занятые недели': [],
+            'Процент занятости': []
+        })
+    
     all_slots = []
     
     for w in weeks:
@@ -437,7 +451,7 @@ def generate_pattern_data(df_detailed: pd.DataFrame, start_date: str, end_date: 
             how='left',
             indicator=True
         )
-        merged['is_occupied'] = merged['_merge'] == 'both'
+        merged['is_occupied'] = (merged['_merge'] == 'both').astype(int)
         
         merged = merged.merge(
             df_detailed_for_pattern[['Аудитория', 'Тип помещения']].drop_duplicates(),
@@ -449,15 +463,40 @@ def generate_pattern_data(df_detailed: pd.DataFrame, start_date: str, end_date: 
             total_weeks=('week_start', 'count'),
             occupied_weeks=('is_occupied', 'sum')
         ).reset_index()
-        pattern['Процент занятости'] = (pattern['occupied_weeks'] / pattern['total_weeks'] * 100).round(1)
+        
+        # Конвертируем в числовые типы
+        pattern['total_weeks'] = pd.to_numeric(pattern['total_weeks'], errors='coerce').fillna(0).astype(int)
+        pattern['occupied_weeks'] = pd.to_numeric(pattern['occupied_weeks'], errors='coerce').fillna(0).astype(int)
+        
+        # Вычисляем процент занятости с защитой от деления на ноль
+        pattern['Процент занятости'] = np.where(
+            pattern['total_weeks'] > 0,
+            (pattern['occupied_weeks'] / pattern['total_weeks'] * 100).round(1),
+            0.0
+        )
         
         pattern = pattern[['Аудитория', 'День недели', 'Пара', 'Тип недели', 'Тип помещения', 'total_weeks', 'occupied_weeks', 'Процент занятости']]
         pattern.rename(columns={
             'total_weeks': 'Всего недель',
             'occupied_weeks': 'Занятые недели',
         }, inplace=True)
+        
+        # Конвертируем все числовые колонки в простые типы Python
+        pattern['Всего недель'] = pattern['Всего недель'].astype(int)
+        pattern['Занятые недели'] = pattern['Занятые недели'].astype(int)
+        pattern['Процент занятости'] = pattern['Процент занятости'].astype(float)
+        pattern['Пара'] = pattern['Пара'].astype(int)
     else:
-        pattern = pd.DataFrame(columns=['Аудитория', 'День недели', 'Пара', 'Тип недели', 'Тип помещения', 'Всего недель', 'Занятые недели', 'Процент занятости'])
+        pattern = pd.DataFrame({
+            'Аудитория': [],
+            'День недели': [],
+            'Пара': [],
+            'Тип недели': [],
+            'Тип помещения': [],
+            'Всего недель': [],
+            'Занятые недели': [],
+            'Процент занятости': []
+        })
     
     return pattern
 
