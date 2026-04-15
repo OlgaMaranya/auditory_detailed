@@ -148,6 +148,37 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .filters {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        .filter-select {
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn-apply {
+            padding: 8px 20px;
+            font-size: 14px;
+            align-self: flex-end;
+            height: fit-content;
+        }
         .tab-content.active {
             display: block;
         }
@@ -439,9 +470,73 @@
                 return;
             }
 
+            // Рендерим фильтры
+            const auditorySet = new Set(currentData.free.map(s => s['Аудитория']).filter(Boolean));
+            const typeSet = new Set(currentData.free.map(s => s['Тип помещения']).filter(Boolean));
+            const weekTypeSet = new Set(currentData.free.map(s => s['Тип недели']).filter(Boolean));
+
+            document.getElementById('free-filters').innerHTML = `
+                <div class="filter-group">
+                    <label>Аудитория:</label>
+                    <select id="freeAuditoryFilter" class="filter-select" multiple size="5">
+                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип помещения:</label>
+                    <select id="freeTypeFilter" class="filter-select" multiple size="5">
+                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>День недели:</label>
+                    <select id="freeDayFilter" class="filter-select" multiple size="6">
+                        <option value="Пн">Пн</option>
+                        <option value="Вт">Вт</option>
+                        <option value="Ср">Ср</option>
+                        <option value="Чт">Чт</option>
+                        <option value="Пт">Пт</option>
+                        <option value="Сб">Сб</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип недели:</label>
+                    <select id="freeWeekTypeFilter" class="filter-select" multiple size="2">
+                        ${Array.from(weekTypeSet).sort().map(w => `<option value="${w}">${w === 'числитель' ? 'Числитель' : 'Знаменатель'}</option>`).join('')}
+                    </select>
+                </div>
+                <button onclick="applyFreeFilters()" class="btn-apply">Применить</button>
+            `;
+
+            renderFreeCharts(currentData.free);
+            renderFreeTable(currentData.free);
+        }
+
+        function applyFreeFilters() {
+            const audSelect = document.getElementById('freeAuditoryFilter');
+            const typeSelect = document.getElementById('freeTypeFilter');
+            const daySelect = document.getElementById('freeDayFilter');
+            const weekSelect = document.getElementById('freeWeekTypeFilter');
+
+            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
+            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
+            const selectedDays = Array.from(daySelect.selectedOptions).map(o => o.value);
+            const selectedWeeks = Array.from(weekSelect.selectedOptions).map(o => o.value);
+
+            let filtered = currentData.free;
+            if (selectedAud.length > 0) filtered = filtered.filter(s => selectedAud.includes(s['Аудитория']));
+            if (selectedTypes.length > 0) filtered = filtered.filter(s => selectedTypes.includes(s['Тип помещения']));
+            if (selectedDays.length > 0) filtered = filtered.filter(s => selectedDays.includes(s['День недели']));
+            if (selectedWeeks.length > 0) filtered = filtered.filter(s => selectedWeeks.includes(s['Тип недели']));
+
+            renderFreeCharts(filtered);
+            renderFreeTable(filtered);
+        }
+
+        function renderFreeCharts(data) {
             // Топ-10 свободных аудиторий
             const audCount = {};
-            currentData.free.forEach(slot => {
+            data.forEach(slot => {
                 audCount[slot['Аудитория']] = (audCount[slot['Аудитория']] || 0) + 1;
             });
             const top10 = Object.entries(audCount)
@@ -466,7 +561,7 @@
             // Тепловая карта
             const heatmapData = {};
             const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-            currentData.free.forEach(slot => {
+            data.forEach(slot => {
                 const key = `${slot['День недели']}_${slot['Пара']}`;
                 heatmapData[key] = (heatmapData[key] || 0) + 1;
             });
@@ -488,18 +583,19 @@
                 xaxis: { title: 'Пара', dtick: 1 },
                 yaxis: { title: 'День недели' }
             }, { responsive: true });
+        }
 
-            // Таблица
+        function renderFreeTable(data) {
             const tableFree = document.getElementById('table-free');
-            if (currentData.free.length > 0) {
-                const headers = Object.keys(currentData.free[0]);
+            if (data.length > 0) {
+                const headers = Object.keys(data[0]);
                 tableFree.innerHTML = `
                     <thead>
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
                     </thead>
                     <tbody>
-                        ${currentData.free.slice(0, 100).map(row => 
-                            `<tr>${headers.map(h => `<td>${row[h] !== null ? row[h] : ''}</td>`).join('')}</tr>`
+                        ${data.slice(0, 100).map(row => 
+                            `<tr>${headers.map(h => `<td>${row[h] !== null && row[h] !== undefined ? row[h] : ''}</td>`).join('')}</tr>`
                         ).join('')}
                     </tbody>
                 `;
@@ -512,14 +608,64 @@
                 return;
             }
 
+            // Рендерим фильтры
+            const auditorySet = new Set(currentData.detailed.map(s => s['Аудитория']).filter(Boolean));
+            const typeSet = new Set(currentData.detailed.map(s => s['Тип помещения']).filter(Boolean));
+            const lessonTypeSet = new Set(currentData.detailed.map(s => s['Тип занятия']).filter(Boolean));
+
+            document.getElementById('detailed-filters').innerHTML = `
+                <div class="filter-group">
+                    <label>Аудитория:</label>
+                    <select id="detailedAuditoryFilter" class="filter-select" multiple size="5">
+                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип помещения:</label>
+                    <select id="detailedTypeFilter" class="filter-select" multiple size="5">
+                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип занятия:</label>
+                    <select id="detailedLessonTypeFilter" class="filter-select" multiple size="5">
+                        ${Array.from(lessonTypeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <button onclick="applyDetailedFilters()" class="btn-apply">Применить</button>
+            `;
+
+            renderDetailedCharts(currentData.detailed);
+            renderDetailedTable(currentData.detailed);
+        }
+
+        function applyDetailedFilters() {
+            const audSelect = document.getElementById('detailedAuditoryFilter');
+            const typeSelect = document.getElementById('detailedTypeFilter');
+            const lessonSelect = document.getElementById('detailedLessonTypeFilter');
+
+            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
+            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
+            const selectedLessons = Array.from(lessonSelect.selectedOptions).map(o => o.value);
+
+            let filtered = currentData.detailed;
+            if (selectedAud.length > 0) filtered = filtered.filter(s => selectedAud.includes(s['Аудитория']));
+            if (selectedTypes.length > 0) filtered = filtered.filter(s => selectedTypes.includes(s['Тип помещения']));
+            if (selectedLessons.length > 0) filtered = filtered.filter(s => selectedLessons.includes(s['Тип занятия']));
+
+            renderDetailedCharts(filtered);
+            renderDetailedTable(filtered);
+        }
+
+        function renderDetailedCharts(data) {
             const planCol = 'Общее количество студентов с учетом подгрупп (ПЛАН)';
             const factCol = 'Фактическое посещение (ФАКТ)';
             const rateCol = 'Процент посещаемости (факт/план * 100%)';
 
             // Scatter plot
             const traceScatter = {
-                x: currentData.detailed.map(r => r[planCol] || 0),
-                y: currentData.detailed.map(r => r[factCol] || 0),
+                x: data.map(r => r[planCol] || 0),
+                y: data.map(r => r[factCol] || 0),
                 mode: 'markers',
                 type: 'scatter',
                 marker: { 
@@ -536,7 +682,7 @@
             }, { responsive: true });
 
             // Histogram
-            const attendanceRates = currentData.detailed
+            const attendanceRates = data
                 .map(r => r[rateCol] || 0)
                 .filter(v => v > 0 && v <= 100);
 
@@ -552,17 +698,22 @@
                 xaxis: { title: 'Посещаемость (%)' },
                 yaxis: { title: 'Количество занятий' }
             }, { responsive: true });
+        }
 
-            // Таблица
+        function renderDetailedTable(data) {
             const tableDetailed = document.getElementById('table-detailed');
-            if (currentData.detailed.length > 0) {
+            const planCol = 'Общее количество студентов с учетом подгрупп (ПЛАН)';
+            const factCol = 'Фактическое посещение (ФАКТ)';
+            const rateCol = 'Процент посещаемости (факт/план * 100%)';
+
+            if (data.length > 0) {
                 const headers = ['Дата/время занятия', 'Аудитория', 'Тип помещения', 'Дисциплина', 'Группа', 'План', 'Факт', 'Посещаемость %'];
                 tableDetailed.innerHTML = `
                     <thead>
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
                     </thead>
                     <tbody>
-                        ${currentData.detailed.slice(0, 100).map(row => `
+                        ${data.slice(0, 100).map(row => `
                             <tr>
                                 <td>${row['Дата/время занятия'] || ''}</td>
                                 <td>${row['Аудитория'] || ''}</td>
@@ -587,62 +738,155 @@
                 return;
             }
 
-            // Упрощенная визуализация паттернов
-            const patternByDay = {};
+            // Рендерим фильтры
+            const auditorySet = new Set(currentData.pattern.map(p => p['Аудитория']).filter(Boolean));
+            const typeSet = new Set(currentData.pattern.map(p => p['Тип помещения']).filter(Boolean));
+            const weekTypeSet = new Set(currentData.pattern.map(p => p['Тип недели']).filter(Boolean));
+
+            document.getElementById('pattern-filters').innerHTML = `
+                <div class="filter-group">
+                    <label>Аудитория:</label>
+                    <select id="patternAuditoryFilter" class="filter-select" multiple size="5">
+                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип помещения:</label>
+                    <select id="patternTypeFilter" class="filter-select" multiple size="5">
+                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>День недели:</label>
+                    <select id="patternDayFilter" class="filter-select" multiple size="6">
+                        <option value="Пн">Пн</option>
+                        <option value="Вт">Вт</option>
+                        <option value="Ср">Ср</option>
+                        <option value="Чт">Чт</option>
+                        <option value="Пт">Пт</option>
+                        <option value="Сб">Сб</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Тип недели:</label>
+                    <select id="patternWeekTypeFilter" class="filter-select" multiple size="2">
+                        ${Array.from(weekTypeSet).sort().map(w => `<option value="${w}">${w === 'числитель' ? 'Числитель' : 'Знаменатель'}</option>`).join('')}
+                    </select>
+                </div>
+                <button onclick="applyPatternFilters()" class="btn-apply">Применить</button>
+            `;
+
+            renderPatternHeatmap(currentData.pattern);
+            renderPatternTable(currentData.pattern);
+        }
+
+        function applyPatternFilters() {
+            const audSelect = document.getElementById('patternAuditoryFilter');
+            const typeSelect = document.getElementById('patternTypeFilter');
+            const daySelect = document.getElementById('patternDayFilter');
+            const weekSelect = document.getElementById('patternWeekTypeFilter');
+
+            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
+            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
+            const selectedDays = Array.from(daySelect.selectedOptions).map(o => o.value);
+            const selectedWeeks = Array.from(weekSelect.selectedOptions).map(o => o.value);
+
+            let filtered = currentData.pattern;
+            if (selectedAud.length > 0) filtered = filtered.filter(p => selectedAud.includes(p['Аудитория']));
+            if (selectedTypes.length > 0) filtered = filtered.filter(p => selectedTypes.includes(p['Тип помещения']));
+            if (selectedDays.length > 0) filtered = filtered.filter(p => selectedDays.includes(p['День недели']));
+            if (selectedWeeks.length > 0) filtered = filtered.filter(p => selectedWeeks.includes(p['Тип недели']));
+
+            renderPatternHeatmap(filtered);
+            renderPatternTable(filtered);
+        }
+
+        function renderPatternHeatmap(data) {
             const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
             
-            // Проверяем, что каждый элемент имеет нужные поля
-            currentData.pattern.forEach(p => {
+            // Создаем две тепловые карты: числитель и знаменатель
+            const numeratorData = {};
+            const denominatorData = {};
+            
+            data.forEach(p => {
                 if (p && typeof p === 'object' && p['День недели'] && p['Пара'] !== undefined) {
                     const key = `${p['День недели']}_${p['Пара']}`;
-                    if (!patternByDay[key]) {
-                        patternByDay[key] = { sum: 0, count: 0 };
-                    }
                     const occupancy = parseFloat(p['Процент занятости']) || 0;
-                    patternByDay[key].sum += occupancy;
-                    patternByDay[key].count++;
+                    
+                    if (p['Тип недели'] === 'числитель') {
+                        if (!numeratorData[key]) numeratorData[key] = { sum: 0, count: 0 };
+                        numeratorData[key].sum += occupancy;
+                        numeratorData[key].count++;
+                    } else if (p['Тип недели'] === 'знаменатель') {
+                        if (!denominatorData[key]) denominatorData[key] = { sum: 0, count: 0 };
+                        denominatorData[key].sum += occupancy;
+                        denominatorData[key].count++;
+                    }
                 }
             });
 
-            const z = dayOrder.map(day => 
+            const zNumerator = dayOrder.map(day => 
                 Array.from({length: 9}, (_, i) => {
                     const key = `${day}_${i+1}`;
-                    const data = patternByDay[key];
-                    return data ? Math.round(data.sum / data.count) : 0;
+                    const d = numeratorData[key];
+                    return d ? Math.round(d.sum / d.count) : 0;
                 })
             );
 
-            const traceHeatmap = {
-                z: z,
+            const zDenominator = dayOrder.map(day => 
+                Array.from({length: 9}, (_, i) => {
+                    const key = `${day}_${i+1}`;
+                    const d = denominatorData[key];
+                    return d ? Math.round(d.sum / d.count) : 0;
+                })
+            );
+
+            const traceNumerator = {
+                z: zNumerator,
                 x: Array.from({length: 9}, (_, i) => i + 1),
                 y: dayOrder,
                 type: 'heatmap',
                 colorscale: 'Reds',
                 zmin: 0,
-                zmax: 100
+                zmax: 100,
+                name: 'Числитель'
             };
 
-            Plotly.newPlot('chart-pattern-heatmap', [traceHeatmap], {
-                title: 'Средняя занятость аудиторий по дням и парам (%)',
-                xaxis: { title: 'Пара', dtick: 1 },
-                yaxis: { title: 'День недели' }
-            }, { responsive: true });
+            const traceDenominator = {
+                z: zDenominator,
+                x: Array.from({length: 9}, (_, i) => i + 1),
+                y: dayOrder,
+                type: 'heatmap',
+                colorscale: 'Reds',
+                zmin: 0,
+                zmax: 100,
+                name: 'Знаменатель',
+                showscale: false
+            };
 
-            // Таблица
+            Plotly.newPlot('chart-pattern-heatmap', [traceNumerator, traceDenominator], {
+                title: 'Занятость аудиторий по дням и парам (%)',
+                xaxis: { title: 'Пара', dtick: 1 },
+                yaxis: { title: 'День недели' },
+                showlegend: true
+            }, { responsive: true });
+        }
+
+        function renderPatternTable(data) {
             const tablePattern = document.getElementById('table-pattern');
-            if (currentData.pattern.length > 0) {
+            if (data.length > 0) {
                 const headers = ['Аудитория', 'День недели', 'Пара', 'Тип недели', 'Процент занятости'];
                 tablePattern.innerHTML = `
                     <thead>
                         <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
                     </thead>
                     <tbody>
-                        ${currentData.pattern.slice(0, 100).map(row => `
+                        ${data.slice(0, 100).map(row => `
                             <tr>
                                 <td>${row['Аудитория'] || ''}</td>
                                 <td>${row['День недели'] || ''}</td>
                                 <td>${row['Пара'] || ''}</td>
-                                <td>${row['Тип недели'] || ''}</td>
+                                <td>${row['Тип недели'] === 'числитель' ? 'Числитель' : 'Знаменатель'}</td>
                                 <td>${(parseFloat(row['Процент занятости']) || 0).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
