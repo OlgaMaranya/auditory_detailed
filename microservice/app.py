@@ -350,9 +350,11 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     df_occupied['time_start'] = df_occupied['time_part']
     df_occupied['week_type'] = df_occupied['Тип недели']
     
-    # Генерация всех возможных слотов
-    start_dt = pd.to_datetime(CONFIG['period']['start_date'] if 'period' in CONFIG else df_occupied['datetime_parsed'].min())
-    end_dt = pd.to_datetime(CONFIG['period']['end_date'] if 'period' in CONFIG else df_occupied['datetime_parsed'].max())
+    # Генерация всех возможных слотов - используем даты из CONFIG
+    start_dt = pd.to_datetime(CONFIG.get('period', {}).get('start_date', '2025-09-01'))
+    end_dt = pd.to_datetime(CONFIG.get('period', {}).get('end_date', '2025-12-01'))
+    
+    print(f"📅 Генерация слотов с {start_dt.date()} по {end_dt.date()}")
     
     all_combinations = []
     current = start_dt
