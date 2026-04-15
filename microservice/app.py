@@ -101,21 +101,30 @@ def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
         'type_name': ['Лекционная', 'Лекционная', 'Практическая', 'Практическая', 'Лаборатория']
     })
     
-    # Тестовые занятые слоты
+    # Тестовые занятые слоты - генерируем для ЧИСЛИТЕЛЯ и ЗНАМЕНАТЕЛЯ
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
     weekdays = dates[dates.dayofweek < 6]  # Только будние дни
+    
+    # Определяем тип недели для каждой даты
+    def get_week_type(date):
+        start_sem = pd.Timestamp('2025-09-01')
+        start_monday_sem = start_sem - pd.Timedelta(days=start_sem.weekday())
+        weeks_passed = int((date - start_monday_sem).days / 7)
+        return 'числитель' if weeks_passed % 2 == 0 else 'знаменатель'
     
     test_occupied = []
     groups = ['ИВТ-41', 'ИВТ-42', 'ЭУ-31', 'ЭУ-32', 'ЖД-21']
     disciplines = ['Математика', 'Физика', 'Программирование', 'Базы данных', 'Сети']
     lesson_types = ['Лекция', 'Практика', 'Лабораторная']
     
-    for i, date in enumerate(weekdays[:20]):  # Ограничим 20 днями
+    for i, date in enumerate(weekdays[:90]):  # Берём весь период (около 3 месяцев)
         if date.dayofweek < 6:  # Пн-Пт
+            week_type = get_week_type(date)
             day_name = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.dayofweek]
-            for pair in range(1, 6):  # Пары 1-5
-                time_str = ['08:30:00', '10:10:00', '12:10:00', '13:50:00', '15:30:00'][pair-1]
-                # Заполняем ~60% слотов
+            for pair in range(1, 10):  # Пары 1-9
+                time_str = ['08:30:00', '10:10:00', '12:10:00', '13:50:00', '15:30:00', 
+                           '17:10:00', '18:50:00', '20:30:00', '22:10:00'][pair-1]
+                # Заполняем ~60% слотов для КАЖДОГО типа недели
                 if (i + pair) % 3 != 0:
                     aud_idx = (i + pair) % 5
                     test_occupied.append({
@@ -125,7 +134,7 @@ def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
                         'building_name': f'Корпус {["А", "Б", "В"][aud_idx // 2]}',
                         'department_name': f'Факультет {aud_idx + 1}',
                         'sched_done_id': i * 10 + pair,
-                        'lec_date': date.strftime('%Y-%m-%d'),
+                        'lec_date': date.strftime('%d.%m.%Y'),  # Формат как в БД
                         'title': disciplines[i % len(disciplines)],
                         'group_id': 100 + i % 5,
                         'subgroup': 0,
@@ -144,6 +153,8 @@ def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
     df_occupied = pd.DataFrame(test_occupied)
     df_presence = pd.DataFrame({'sched_done_id': [], 'present_count': []})
     df_courses = pd.DataFrame({'group_id': [], 'subgroup': [], 'plan_count': []})
+    
+    print(f"✅ Сгенерировано {len(df_occupied)} занятых слотов (числитель + знаменатель)")
     
     return {
         'auditories': df_auditories,
@@ -344,16 +355,16 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     end_dt = pd.to_datetime(CONFIG['period']['end_date'] if 'period' in CONFIG else df_occupied['datetime_parsed'].max())
     
     all_combinations = []
-    for _, row in df_auditories.iterrows():
-        auditory_id = row['id']
-        auditory_name = row['name']
-        type_name = row['type_name']
-        current = start_dt
-        while current <= end_dt:
-            week_type = get_week_type_from_date(current)
-            day_of_week_num = current.weekday() + 2
-            if day_of_week_num in DAYS_OF_WEEK:
-                day_name = DAYS_OF_WEEK[day_of_week_num]
+    current = start_dt
+    while current <= end_dt:
+        week_type = get_week_type_from_date(current)
+        day_of_week_num = current.weekday() + 2
+        if day_of_week_num in DAYS_OF_WEEK:
+            day_name = DAYS_OF_WEEK[day_of_week_num]
+            for _, row in df_auditories.iterrows():
+                auditory_id = row['id']
+                auditory_name = row['name']
+                type_name = row['type_name']
                 for time_str, pair_num in TIME_SLOTS.items():
                     all_combinations.append({
                         'auditory_id': auditory_id,
@@ -365,7 +376,7 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
                         'time_start': time_str,
                         'week_type': week_type,
                     })
-            current += pd.Timedelta(days=1)
+        current += pd.Timedelta(days=1)
     
     df_all_slots = pd.DataFrame(all_combinations)
     df_all_slots = df_all_slots.drop_duplicates(subset=['auditory_id', 'day_of_week_num', 'time_start', 'week_type'])

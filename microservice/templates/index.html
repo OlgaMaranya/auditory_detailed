@@ -470,22 +470,22 @@
                 return;
             }
 
-            // Рендерим фильтры
-            const auditorySet = new Set(currentData.free.map(s => s['Аудитория']).filter(Boolean));
-            const typeSet = new Set(currentData.free.map(s => s['Тип помещения']).filter(Boolean));
-            const weekTypeSet = new Set(currentData.free.map(s => s['Тип недели']).filter(Boolean));
+            // Рендерим фильтры - используем ВСЕ данные из detailed для типов помещений и аудиторий
+            const allAuditories = new Set([...(currentData.detailed || []).map(d => d['Аудитория']).filter(Boolean)]);
+            const allTypes = new Set([...(currentData.detailed || []).map(d => d['Тип помещения']).filter(Boolean)]);
+            const weekTypeSet = new Set(['числитель', 'знаменатель']); // Всегда показываем оба типа недели
 
             document.getElementById('free-filters').innerHTML = `
                 <div class="filter-group">
                     <label>Аудитория:</label>
                     <select id="freeAuditoryFilter" class="filter-select" multiple size="5">
-                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
+                        ${Array.from(allAuditories).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Тип помещения:</label>
                     <select id="freeTypeFilter" class="filter-select" multiple size="5">
-                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
+                        ${Array.from(allTypes).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
                     </select>
                 </div>
                 <div class="filter-group">
@@ -502,7 +502,8 @@
                 <div class="filter-group">
                     <label>Тип недели:</label>
                     <select id="freeWeekTypeFilter" class="filter-select" multiple size="2">
-                        ${Array.from(weekTypeSet).sort().map(w => `<option value="${w}">${w === 'числитель' ? 'Числитель' : 'Знаменатель'}</option>`).join('')}
+                        <option value="числитель">Числитель</option>
+                        <option value="знаменатель">Знаменатель</option>
                     </select>
                 </div>
                 <button onclick="applyFreeFilters()" class="btn-apply">Применить</button>
