@@ -1,23 +1,7 @@
 ```
-# Compiled Python files
-*.pyc
-__pycache__/
-
 # Logs
 *.log
-server.log
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-
-# Editors
-.vscode/
-.idea/
-
-# Environment
-.env
-.env.local
-*.env.*
+# Server log specific to this project
+microservice/server.log
 ```
