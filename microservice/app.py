@@ -376,9 +376,24 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     if 'День недели' in df_occupied.columns:
         df_occupied['День недели'] = pd.Categorical(df_occupied['День недели'], categories=DAY_ORDER, ordered=True)
     
+    # === Конвертация типов данных для JSON ===
+    def convert_to_json_serializable(df):
+        """Конвертировать DataFrame в JSON-сериализуемый формат"""
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = df[col].astype(str)
+            elif pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(0).astype(float)
+            else:
+                df[col] = df[col].fillna('').astype(str)
+        return df
+
+    df_free_json = convert_to_json_serializable(df_free_slots.copy())
+    df_detailed_json = convert_to_json_serializable(df_occupied.copy())
+
     return {
-        'free': df_free_slots,
-        'detailed': df_occupied
+        'free': df_free_json,
+        'detailed': df_detailed_json
     }
 
 
@@ -482,10 +497,10 @@ def generate_pattern_data(df_detailed: pd.DataFrame, start_date: str, end_date: 
         }, inplace=True)
         
         # Конвертируем все числовые колонки в простые типы Python
-        pattern['Всего недель'] = pattern['Всего недель'].astype(int)
-        pattern['Занятые недели'] = pattern['Занятые недели'].astype(int)
-        pattern['Процент занятости'] = pattern['Процент занятости'].astype(float)
-        pattern['Пара'] = pattern['Пара'].astype(int)
+        pattern['Всего недель'] = pd.to_numeric(pattern['Всего недель'], errors='coerce').fillna(0).astype(int)
+        pattern['Занятые недели'] = pd.to_numeric(pattern['Занятые недели'], errors='coerce').fillna(0).astype(int)
+        pattern['Процент занятости'] = pd.to_numeric(pattern['Процент занятости'], errors='coerce').fillna(0.0).astype(float)
+        pattern['Пара'] = pd.to_numeric(pattern['Пара'], errors='coerce').fillna(0).astype(int)
     else:
         pattern = pd.DataFrame({
             'Аудитория': [],
