@@ -167,20 +167,21 @@ def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
 def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame]:
     """Загружает все необходимые данные из базы данных."""
     
-    # Формируем запросы
-    excluded_str = ','.join(map(str, EXCLUDED_BUILDINGS))
+    # Формируем безопасные параметризованные запросы
+    excluded_tuple = tuple(EXCLUDED_BUILDINGS)
     
-    query_auditories = f"""
+    query_auditories = text(f"""
     SELECT a.id, a.name, at.name as type_name
     FROM auditories a
     JOIN aud_types at ON a.id_type = at.id
     JOIN building b ON a.building_id = b.id
     JOIN departments d ON b.dep_id = d.id
     WHERE d.filial_id = 1
-      AND b.id NOT IN ({excluded_str});
-    """
+      AND b.id NOT IN ({','.join(map(str, EXCLUDED_BUILDINGS))});
+    """)
     
-    query_occupied = f"""
+    # ✅ ПАРАМЕТРИЗОВАННЫЙ ЗАПРОС - защита от SQL-инъекций
+    query_occupied = text("""
     SELECT
         a.id as auditory_id,
         a.name as auditory_name,
@@ -208,18 +209,18 @@ def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
     JOIN stud_groups sg ON sd.group_id = sg.id
     JOIN lec_types lt ON sd.lec_type = lt.id
     WHERE d.filial_id = 1
-      AND b.id NOT IN ({excluded_str})
-      AND sd.lec_date >= '{start_date}'
-      AND sd.lec_date <= '{end_date}';
-    """
+      AND b.id NOT IN :building_ids
+      AND sd.lec_date >= :start_date
+      AND sd.lec_date <= :end_date;
+    """)
     
-    query_presence = """
+    query_presence = text("""
     SELECT sched_done_id, COUNT(person_id) as present_count
     FROM sched_presence
     GROUP BY sched_done_id;
-    """
+    """)
     
-    query_courses = f"""
+    query_courses = text("""
     SELECT
         c.group_id,
         c.subgroup,
@@ -229,18 +230,22 @@ def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
       AND (c.semestr %% 2) = 1
       AND c.active IN (0, 1)
       AND c.archived_id NOT IN (4, 5)
-      AND c.date_create <= '{end_date}'
-      AND (c.date_end IS NULL OR c.date_end >= '{start_date}')
+      AND c.date_create <= :end_date
+      AND (c.date_end IS NULL OR c.date_end >= :start_date)
     GROUP BY c.group_id, c.subgroup;
-    """
+    """)
     
     try:
         with engine.connect() as conn:
             # Загружаем аудитории
             df_auditories = pd.read_sql(query_auditories, conn)
             
-            # Загружаем занятые слоты
-            df_occupied = pd.read_sql(query_occupied, conn)
+            # Загружаем занятые слоты с параметрами
+            df_occupied = pd.read_sql(query_occupied, conn, params={
+                'building_ids': excluded_tuple,
+                'start_date': start_date,
+                'end_date': end_date
+            })
             
             # Загружаем посещаемость
             try:
