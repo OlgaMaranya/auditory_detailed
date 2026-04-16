@@ -167,78 +167,77 @@ def generate_test_data(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
 def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame]:
     """Загружает все необходимые данные из базы данных."""
     
-    # Формируем безопасные параметризованные запросы
     excluded_tuple = tuple(EXCLUDED_BUILDINGS)
     
-    query_auditories = text(f"""
-    SELECT a.id, a.name, at.name as type_name
-    FROM auditories a
-    JOIN aud_types at ON a.id_type = at.id
-    JOIN building b ON a.building_id = b.id
-    JOIN departments d ON b.dep_id = d.id
-    WHERE d.filial_id = 1
-      AND b.id NOT IN ({','.join(map(str, EXCLUDED_BUILDINGS))});
+    # ✅ ПАРАМЕТРИЗОВАННЫЕ ЗАПРОСЫ - защита от SQL-инъекций
+    query_auditories = text("""
+        SELECT a.id, a.name, at.name as type_name
+        FROM auditories a
+        JOIN aud_types at ON a.id_type = at.id
+        JOIN building b ON a.building_id = b.id
+        JOIN departments d ON b.dep_id = d.id
+        WHERE d.filial_id = 1
+          AND b.id NOT IN :building_ids
     """)
     
-    # ✅ ПАРАМЕТРИЗОВАННЫЙ ЗАПРОС - защита от SQL-инъекций
     query_occupied = text("""
-    SELECT
-        a.id as auditory_id,
-        a.name as auditory_name,
-        at.name as type_name,
-        b.name as building_name,
-        d.name as department_name,
-        sd.id as sched_done_id,
-        sd.lec_date,
-        sd.title,
-        sd.group_id,
-        sd.subgroup,
-        sd.lec_type,
-        sd.aud_id,
-        sd.is_present,
-        sd.all_absence,
-        sd.sched_error,
-        sd.special_type,
-        sg.name as group_name,
-        lt.name as lesson_type_name
-    FROM sched_done sd
-    JOIN auditories a ON sd.aud_id = a.id
-    JOIN aud_types at ON a.id_type = at.id
-    JOIN building b ON a.building_id = b.id
-    JOIN departments d ON b.dep_id = d.id
-    JOIN stud_groups sg ON sd.group_id = sg.id
-    JOIN lec_types lt ON sd.lec_type = lt.id
-    WHERE d.filial_id = 1
-      AND b.id NOT IN :building_ids
-      AND sd.lec_date >= :start_date
-      AND sd.lec_date <= :end_date;
+        SELECT
+            a.id as auditory_id,
+            a.name as auditory_name,
+            at.name as type_name,
+            b.name as building_name,
+            d.name as department_name,
+            sd.id as sched_done_id,
+            sd.lec_date,
+            sd.title,
+            sd.group_id,
+            sd.subgroup,
+            sd.lec_type,
+            sd.aud_id,
+            sd.is_present,
+            sd.all_absence,
+            sd.sched_error,
+            sd.special_type,
+            sg.name as group_name,
+            lt.name as lesson_type_name
+        FROM sched_done sd
+        JOIN auditories a ON sd.aud_id = a.id
+        JOIN aud_types at ON a.id_type = at.id
+        JOIN building b ON a.building_id = b.id
+        JOIN departments d ON b.dep_id = d.id
+        JOIN stud_groups sg ON sd.group_id = sg.id
+        JOIN lec_types lt ON sd.lec_type = lt.id
+        WHERE d.filial_id = 1
+          AND b.id NOT IN :building_ids
+          AND sd.lec_date >= :start_date
+          AND sd.lec_date <= :end_date
     """)
     
     query_presence = text("""
-    SELECT sched_done_id, COUNT(person_id) as present_count
-    FROM sched_presence
-    GROUP BY sched_done_id;
+        SELECT sched_done_id, COUNT(person_id) as present_count
+        FROM sched_presence
+        GROUP BY sched_done_id
     """)
     
     query_courses = text("""
-    SELECT
-        c.group_id,
-        c.subgroup,
-        COUNT(*) as plan_count
-    FROM courses c
-    WHERE c.s_year = 2025
-      AND (c.semestr %% 2) = 1
-      AND c.active IN (0, 1)
-      AND c.archived_id NOT IN (4, 5)
-      AND c.date_create <= :end_date
-      AND (c.date_end IS NULL OR c.date_end >= :start_date)
-    GROUP BY c.group_id, c.subgroup;
+        SELECT
+            c.group_id,
+            c.subgroup,
+            COUNT(*) as plan_count
+        FROM courses c
+        WHERE c.s_year = 2025
+          AND (c.semestr %% 2) = 1
+          AND c.active IN (0, 1)
+          AND c.archived_id NOT IN (4, 5)
+          AND c.date_create <= :end_date
+          AND (c.date_end IS NULL OR c.date_end >= :start_date)
+        GROUP BY c.group_id, c.subgroup
     """)
     
     try:
         with engine.connect() as conn:
-            # Загружаем аудитории
-            df_auditories = pd.read_sql(query_auditories, conn)
+            # Загружаем аудитории с параметрами
+            df_auditories = pd.read_sql(query_auditories, conn, params={'building_ids': excluded_tuple})
             
             # Загружаем занятые слоты с параметрами
             df_occupied = pd.read_sql(query_occupied, conn, params={
@@ -253,9 +252,12 @@ def fetch_data_from_db(start_date: str, end_date: str) -> Dict[str, pd.DataFrame
             except Exception:
                 df_presence = pd.DataFrame({'sched_done_id': [], 'present_count': []})
             
-            # Загружаем количество студентов в группах
+            # Загружаем количество студентов в группах с параметрами
             try:
-                df_courses = pd.read_sql(query_courses, conn)
+                df_courses = pd.read_sql(query_courses, conn, params={
+                    'start_date': start_date,
+                    'end_date': end_date
+                })
             except Exception:
                 df_courses = pd.DataFrame({'group_id': [], 'subgroup': [], 'plan_count': []})
         
@@ -478,10 +480,17 @@ def process_data(raw_data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
             
             if pd.api.types.is_datetime64_any_dtype(df_copy[col]):
                 df_copy[col] = df_copy[col].astype(str)
+            elif col in ['Пара', 'Всего недель', 'Занятые недели', 'group_id', 'subgroup', 
+                         'auditory_id', 'sched_done_id', 'present_count', 'plan_count',
+                         'is_present', 'all_absence', 'sched_error', 'lec_type', 'aud_id']:
+                # Явно целочисленные поля - конвертируем в int
+                df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce').fillna(0).astype(int)
             elif pd.api.types.is_numeric_dtype(df_copy[col]):
-                df_copy[col] = df_copy[col].fillna(0).astype(float)
+                # Остальные числовые поля (проценты, количества)
+                df_copy[col] = pd.to_numeric(df_copy[col], errors='coerce').fillna(0)
             else:
-                df_copy[col] = df_copy[col].fillna('').astype(str)
+                # Строковые поля - убираем пробелы и приводим к строке
+                df_copy[col] = df_copy[col].fillna('').astype(str).str.strip()
         return df_copy
 
     df_free_json = convert_to_json_serializable(df_free_slots)

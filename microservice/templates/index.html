@@ -483,11 +483,52 @@
             loadSummary();
         }
 
+        // Утилита для инициализации TomSelect с общими настройками
+        function initTomSelect(elementId, options) {
+            const el = document.getElementById(elementId);
+            if (!el) return null;
+            
+            // Уничтожаем существующий инстанс если есть
+            if (el.tomselect) {
+                el.tomselect.destroy();
+            }
+            
+            const defaultOptions = {
+                create: false,
+                sortField: {field: "text", direction: "asc"},
+                placeholder: 'Выберите...',
+                maxItems: null,
+                searchField: ['text'],
+                hidePlaceholder: true,
+                dropdownParent: 'body',
+                render: {
+                    option: function(data, escape) {
+                        return '<div>' + escape(data.text) + '</div>';
+                    }
+                }
+            };
+            
+            const mergedOptions = {...defaultOptions, ...options};
+            return new TomSelect(`#${elementId}`, mergedOptions);
+        }
+        
+        // Утилита для уничтожения всех TomSelect с префиксом
+        function destroyTomSelects(prefix) {
+            document.querySelectorAll(`[id^="${prefix}"]`).forEach(el => {
+                if (el.tomselect) {
+                    el.tomselect.destroy();
+                }
+            });
+        }
+
         function renderFreeTab() {
             if (!currentData || !currentData.free || currentData.free.length === 0) {
                 document.getElementById('free-filters').innerHTML = '<p>Нет данных</p>';
                 return;
             }
+            
+            // Уничтожаем старые инстансы TomSelect
+            destroyTomSelects('free');
 
             // Рендерим фильтры - используем ВСЕ данные из detailed для типов помещений и аудиторий
             const allAuditories = new Set([...(currentData.detailed || []).map(d => d['Аудитория']).filter(Boolean)]);
@@ -515,26 +556,17 @@
                 <button onclick="clearFreeFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
 
-            // Инициализируем TomSelect
-            new TomSelect('#freeAuditoryFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите аудитории...',
-                maxItems: null,
+            // Инициализируем TomSelect с улучшенными настройками
+            initTomSelect('freeAuditoryFilter', {
+                placeholder: 'Начните вводить название аудитории...',
                 options: Array.from(allAuditories).sort().map(a => ({value: a, text: a}))
             });
-            new TomSelect('#freeTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите тип...',
-                maxItems: null,
+            initTomSelect('freeTypeFilter', {
+                placeholder: 'Выберите тип помещения...',
                 options: Array.from(allTypes).sort().map(t => ({value: t, text: t}))
             });
-            new TomSelect('#freeDayFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
+            initTomSelect('freeDayFilter', {
                 placeholder: 'Выберите дни...',
-                maxItems: null,
                 options: [
                     {value: 'Пн', text: 'Пн'},
                     {value: 'Вт', text: 'Вт'},
@@ -544,11 +576,8 @@
                     {value: 'Сб', text: 'Сб'}
                 ]
             });
-            new TomSelect('#freeWeekTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
+            initTomSelect('freeWeekTypeFilter', {
                 placeholder: 'Выберите тип недели...',
-                maxItems: null,
                 options: [
                     {value: 'числитель', text: 'Числитель'},
                     {value: 'знаменатель', text: 'Знаменатель'}
@@ -689,6 +718,9 @@
                 document.getElementById('detailed-filters').innerHTML = '<p>Нет данных</p>';
                 return;
             }
+            
+            // Уничтожаем старые инстансы TomSelect
+            destroyTomSelects('detailed');
 
             // Рендерим фильтры
             const auditorySet = new Set(currentData.detailed.map(s => s['Аудитория']).filter(Boolean));
@@ -712,26 +744,17 @@
                 <button onclick="clearDetailedFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
 
-            // Инициализируем TomSelect
-            new TomSelect('#detailedAuditoryFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите аудитории...',
-                maxItems: null,
+            // Инициализируем TomSelect с улучшенными настройками
+            initTomSelect('detailedAuditoryFilter', {
+                placeholder: 'Начните вводить название аудитории...',
                 options: Array.from(auditorySet).sort().map(a => ({value: a, text: a}))
             });
-            new TomSelect('#detailedTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите тип...',
-                maxItems: null,
+            initTomSelect('detailedTypeFilter', {
+                placeholder: 'Выберите тип помещения...',
                 options: Array.from(typeSet).sort().map(t => ({value: t, text: t}))
             });
-            new TomSelect('#detailedLessonTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
+            initTomSelect('detailedLessonTypeFilter', {
                 placeholder: 'Выберите тип занятия...',
-                maxItems: null,
                 options: Array.from(lessonTypeSet).sort().map(t => ({value: t, text: t}))
             });
 
@@ -843,6 +866,9 @@
                 document.getElementById('table-pattern').innerHTML = '';
                 return;
             }
+            
+            // Уничтожаем старые инстансы TomSelect
+            destroyTomSelects('pattern');
 
             // Рендерим фильтры
             const auditorySet = new Set(currentData.pattern.map(p => p['Аудитория']).filter(Boolean));
@@ -870,26 +896,17 @@
                 <button onclick="clearPatternFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
 
-            // Инициализируем TomSelect
-            new TomSelect('#patternAuditoryFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите аудитории...',
-                maxItems: null,
+            // Инициализируем TomSelect с улучшенными настройками
+            initTomSelect('patternAuditoryFilter', {
+                placeholder: 'Начните вводить название аудитории...',
                 options: Array.from(auditorySet).sort().map(a => ({value: a, text: a}))
             });
-            new TomSelect('#patternTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
-                placeholder: 'Выберите тип...',
-                maxItems: null,
+            initTomSelect('patternTypeFilter', {
+                placeholder: 'Выберите тип помещения...',
                 options: Array.from(typeSet).sort().map(t => ({value: t, text: t}))
             });
-            new TomSelect('#patternDayFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
+            initTomSelect('patternDayFilter', {
                 placeholder: 'Выберите дни...',
-                maxItems: null,
                 options: [
                     {value: 'Пн', text: 'Пн'},
                     {value: 'Вт', text: 'Вт'},
@@ -899,11 +916,8 @@
                     {value: 'Сб', text: 'Сб'}
                 ]
             });
-            new TomSelect('#patternWeekTypeFilter', {
-                create: false,
-                sortField: {field: 'text', direction: 'asc'},
+            initTomSelect('patternWeekTypeFilter', {
                 placeholder: 'Выберите тип недели...',
-                maxItems: null,
                 options: Array.from(weekTypeSet).sort().map(w => ({value: w, text: w === 'числитель' ? 'Числитель' : 'Знаменатель'}))
             });
 
