@@ -1,1 +1,10 @@
-Nothing needs to be added to the .gitignore file since only a template file (index.html) was modified and no build artifacts, dependencies, or temporary files were detected in the changes.
+```
+# Logs
+*.log
+
+# Environment
+.env.local
+
+# Editors
+.vscode/
+```

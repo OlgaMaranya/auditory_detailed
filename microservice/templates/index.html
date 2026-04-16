@@ -212,6 +212,12 @@
             background: #f8f9fa;
             border-radius: 10px;
         }
+        .chart-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
         .table-container {
             overflow-x: auto;
             margin-top: 20px;
@@ -335,8 +341,13 @@
             <div class="chart-container">
                 <div id="chart-free-bar"></div>
             </div>
-            <div class="chart-container">
-                <div id="chart-free-heatmap"></div>
+            <div class="chart-row">
+                <div class="chart-container" style="flex:1; min-width:45%;">
+                    <div id="chart-free-numerator"></div>
+                </div>
+                <div class="chart-container" style="flex:1; min-width:45%;">
+                    <div id="chart-free-denominator"></div>
+                </div>
             </div>
             <div class="table-container">
                 <table id="table-free"></table>
@@ -486,51 +497,83 @@
             document.getElementById('free-filters').innerHTML = `
                 <div class="filter-group">
                     <label>Аудитория:</label>
-                    <select id="freeAuditoryFilter" class="filter-select" multiple size="5">
-                        ${Array.from(allAuditories).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
-                    </select>
+                    <select id="freeAuditoryFilter" class="filter-select" placeholder="Выберите аудитории..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип помещения:</label>
-                    <select id="freeTypeFilter" class="filter-select" multiple size="5">
-                        ${Array.from(allTypes).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
-                    </select>
+                    <select id="freeTypeFilter" class="filter-select" placeholder="Выберите тип..."></select>
                 </div>
                 <div class="filter-group">
                     <label>День недели:</label>
-                    <select id="freeDayFilter" class="filter-select" multiple size="6">
-                        <option value="Пн">Пн</option>
-                        <option value="Вт">Вт</option>
-                        <option value="Ср">Ср</option>
-                        <option value="Чт">Чт</option>
-                        <option value="Пт">Пт</option>
-                        <option value="Сб">Сб</option>
-                    </select>
+                    <select id="freeDayFilter" class="filter-select" placeholder="Выберите дни..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип недели:</label>
-                    <select id="freeWeekTypeFilter" class="filter-select" multiple size="2">
-                        <option value="числитель">Числитель</option>
-                        <option value="знаменатель">Знаменатель</option>
-                    </select>
+                    <select id="freeWeekTypeFilter" class="filter-select" placeholder="Выберите тип недели..."></select>
                 </div>
                 <button onclick="applyFreeFilters()" class="btn-apply">Применить</button>
+                <button onclick="clearFreeFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
+
+            // Инициализируем TomSelect
+            new TomSelect('#freeAuditoryFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите аудитории...',
+                maxItems: null,
+                options: Array.from(allAuditories).sort().map(a => ({value: a, text: a}))
+            });
+            new TomSelect('#freeTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип...',
+                maxItems: null,
+                options: Array.from(allTypes).sort().map(t => ({value: t, text: t}))
+            });
+            new TomSelect('#freeDayFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите дни...',
+                maxItems: null,
+                options: [
+                    {value: 'Пн', text: 'Пн'},
+                    {value: 'Вт', text: 'Вт'},
+                    {value: 'Ср', text: 'Ср'},
+                    {value: 'Чт', text: 'Чт'},
+                    {value: 'Пт', text: 'Пт'},
+                    {value: 'Сб', text: 'Сб'}
+                ]
+            });
+            new TomSelect('#freeWeekTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип недели...',
+                maxItems: null,
+                options: [
+                    {value: 'числитель', text: 'Числитель'},
+                    {value: 'знаменатель', text: 'Знаменатель'}
+                ]
+            });
 
             renderFreeCharts(currentData.free);
             renderFreeTable(currentData.free);
         }
 
-        function applyFreeFilters() {
-            const audSelect = document.getElementById('freeAuditoryFilter');
-            const typeSelect = document.getElementById('freeTypeFilter');
-            const daySelect = document.getElementById('freeDayFilter');
-            const weekSelect = document.getElementById('freeWeekTypeFilter');
+        function clearFreeFilters() {
+            TomSelect.getInstances().forEach(ts => ts.clear());
+            applyFreeFilters();
+        }
 
-            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
-            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
-            const selectedDays = Array.from(daySelect.selectedOptions).map(o => o.value);
-            const selectedWeeks = Array.from(weekSelect.selectedOptions).map(o => o.value);
+        function applyFreeFilters() {
+            const audSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'freeAuditoryFilter');
+            const typeSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'freeTypeFilter');
+            const daySelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'freeDayFilter');
+            const weekSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'freeWeekTypeFilter');
+
+            const selectedAud = audSelect?.getValue() || [];
+            const selectedTypes = typeSelect?.getValue() || [];
+            const selectedDays = daySelect?.getValue() || [];
+            const selectedWeeks = weekSelect?.getValue() || [];
 
             let filtered = currentData.free;
             if (selectedAud.length > 0) filtered = filtered.filter(s => selectedAud.includes(s['Аудитория']));
@@ -567,28 +610,58 @@
                 margin: { l: 150, t: 50, r: 20, b: 50 }
             }, { responsive: true });
 
-            // Тепловая карта
-            const heatmapData = {};
+            // Разделяем данные на числитель и знаменатель
+            const numeratorData = {};
+            const denominatorData = {};
             const dayOrder = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            
             data.forEach(slot => {
                 const key = `${slot['День недели']}_${slot['Пара']}`;
-                heatmapData[key] = (heatmapData[key] || 0) + 1;
+                if (slot['Тип недели'] === 'числитель') {
+                    numeratorData[key] = (numeratorData[key] || 0) + 1;
+                } else if (slot['Тип недели'] === 'знаменатель') {
+                    denominatorData[key] = (denominatorData[key] || 0) + 1;
+                }
             });
 
-            const z = dayOrder.map(day => 
-                Array.from({length: 9}, (_, i) => heatmapData[`${day}_${i+1}`] || 0)
+            // Тепловая карта для числителя
+            const zNumerator = dayOrder.map(day => 
+                Array.from({length: 9}, (_, i) => numeratorData[`${day}_${i+1}`] || 0)
             );
 
-            const traceHeatmap = {
-                z: z,
+            const traceNumerator = {
+                z: zNumerator,
                 x: Array.from({length: 9}, (_, i) => i + 1),
                 y: dayOrder,
                 type: 'heatmap',
-                colorscale: 'Blues'
+                colorscale: 'Blues',
+                name: 'Числитель'
             };
 
-            Plotly.newPlot('chart-free-heatmap', [traceHeatmap], {
-                title: 'Свободные слоты по дням и парам',
+            // Тепловая карта для знаменателя
+            const zDenominator = dayOrder.map(day => 
+                Array.from({length: 9}, (_, i) => denominatorData[`${day}_${i+1}`] || 0)
+            );
+
+            const traceDenominator = {
+                z: zDenominator,
+                x: Array.from({length: 9}, (_, i) => i + 1),
+                y: dayOrder,
+                type: 'heatmap',
+                colorscale: 'Blues',
+                name: 'Знаменатель'
+            };
+
+            // Рисуем первую тепловую карту - числитель
+            Plotly.newPlot('chart-free-numerator', [traceNumerator], {
+                title: 'Числитель - Свободные слоты по дням и парам',
+                xaxis: { title: 'Пара', dtick: 1 },
+                yaxis: { title: 'День недели' }
+            }, { responsive: true });
+
+            // Рисуем вторую тепловую карту - знаменатель
+            Plotly.newPlot('chart-free-denominator', [traceDenominator], {
+                title: 'Знаменатель - Свободные слоты по дням и парам',
                 xaxis: { title: 'Пара', dtick: 1 },
                 yaxis: { title: 'День недели' }
             }, { responsive: true });
@@ -625,37 +698,60 @@
             document.getElementById('detailed-filters').innerHTML = `
                 <div class="filter-group">
                     <label>Аудитория:</label>
-                    <select id="detailedAuditoryFilter" class="filter-select" multiple size="5">
-                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
-                    </select>
+                    <select id="detailedAuditoryFilter" class="filter-select" placeholder="Выберите аудитории..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип помещения:</label>
-                    <select id="detailedTypeFilter" class="filter-select" multiple size="5">
-                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
-                    </select>
+                    <select id="detailedTypeFilter" class="filter-select" placeholder="Выберите тип..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип занятия:</label>
-                    <select id="detailedLessonTypeFilter" class="filter-select" multiple size="5">
-                        ${Array.from(lessonTypeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
-                    </select>
+                    <select id="detailedLessonTypeFilter" class="filter-select" placeholder="Выберите тип занятия..."></select>
                 </div>
                 <button onclick="applyDetailedFilters()" class="btn-apply">Применить</button>
+                <button onclick="clearDetailedFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
+
+            // Инициализируем TomSelect
+            new TomSelect('#detailedAuditoryFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите аудитории...',
+                maxItems: null,
+                options: Array.from(auditorySet).sort().map(a => ({value: a, text: a}))
+            });
+            new TomSelect('#detailedTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип...',
+                maxItems: null,
+                options: Array.from(typeSet).sort().map(t => ({value: t, text: t}))
+            });
+            new TomSelect('#detailedLessonTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип занятия...',
+                maxItems: null,
+                options: Array.from(lessonTypeSet).sort().map(t => ({value: t, text: t}))
+            });
 
             renderDetailedCharts(currentData.detailed);
             renderDetailedTable(currentData.detailed);
         }
 
-        function applyDetailedFilters() {
-            const audSelect = document.getElementById('detailedAuditoryFilter');
-            const typeSelect = document.getElementById('detailedTypeFilter');
-            const lessonSelect = document.getElementById('detailedLessonTypeFilter');
+        function clearDetailedFilters() {
+            TomSelect.getInstances().forEach(ts => ts.clear());
+            applyDetailedFilters();
+        }
 
-            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
-            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
-            const selectedLessons = Array.from(lessonSelect.selectedOptions).map(o => o.value);
+        function applyDetailedFilters() {
+            const audSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'detailedAuditoryFilter');
+            const typeSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'detailedTypeFilter');
+            const lessonSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'detailedLessonTypeFilter');
+
+            const selectedAud = audSelect?.getValue() || [];
+            const selectedTypes = typeSelect?.getValue() || [];
+            const selectedLessons = lessonSelect?.getValue() || [];
 
             let filtered = currentData.detailed;
             if (selectedAud.length > 0) filtered = filtered.filter(s => selectedAud.includes(s['Аудитория']));
@@ -756,50 +852,80 @@
             document.getElementById('pattern-filters').innerHTML = `
                 <div class="filter-group">
                     <label>Аудитория:</label>
-                    <select id="patternAuditoryFilter" class="filter-select" multiple size="5">
-                        ${Array.from(auditorySet).sort().map(a => `<option value="${a}">${a}</option>`).join('')}
-                    </select>
+                    <select id="patternAuditoryFilter" class="filter-select" placeholder="Выберите аудитории..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип помещения:</label>
-                    <select id="patternTypeFilter" class="filter-select" multiple size="5">
-                        ${Array.from(typeSet).sort().map(t => `<option value="${t}">${t}</option>`).join('')}
-                    </select>
+                    <select id="patternTypeFilter" class="filter-select" placeholder="Выберите тип..."></select>
                 </div>
                 <div class="filter-group">
                     <label>День недели:</label>
-                    <select id="patternDayFilter" class="filter-select" multiple size="6">
-                        <option value="Пн">Пн</option>
-                        <option value="Вт">Вт</option>
-                        <option value="Ср">Ср</option>
-                        <option value="Чт">Чт</option>
-                        <option value="Пт">Пт</option>
-                        <option value="Сб">Сб</option>
-                    </select>
+                    <select id="patternDayFilter" class="filter-select" placeholder="Выберите дни..."></select>
                 </div>
                 <div class="filter-group">
                     <label>Тип недели:</label>
-                    <select id="patternWeekTypeFilter" class="filter-select" multiple size="2">
-                        ${Array.from(weekTypeSet).sort().map(w => `<option value="${w}">${w === 'числитель' ? 'Числитель' : 'Знаменатель'}</option>`).join('')}
-                    </select>
+                    <select id="patternWeekTypeFilter" class="filter-select" placeholder="Выберите тип недели..."></select>
                 </div>
                 <button onclick="applyPatternFilters()" class="btn-apply">Применить</button>
+                <button onclick="clearPatternFilters()" class="btn-apply" style="background: #dc3545;">✕ Сбросить</button>
             `;
+
+            // Инициализируем TomSelect
+            new TomSelect('#patternAuditoryFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите аудитории...',
+                maxItems: null,
+                options: Array.from(auditorySet).sort().map(a => ({value: a, text: a}))
+            });
+            new TomSelect('#patternTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип...',
+                maxItems: null,
+                options: Array.from(typeSet).sort().map(t => ({value: t, text: t}))
+            });
+            new TomSelect('#patternDayFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите дни...',
+                maxItems: null,
+                options: [
+                    {value: 'Пн', text: 'Пн'},
+                    {value: 'Вт', text: 'Вт'},
+                    {value: 'Ср', text: 'Ср'},
+                    {value: 'Чт', text: 'Чт'},
+                    {value: 'Пт', text: 'Пт'},
+                    {value: 'Сб', text: 'Сб'}
+                ]
+            });
+            new TomSelect('#patternWeekTypeFilter', {
+                create: false,
+                sortField: {field: 'text', direction: 'asc'},
+                placeholder: 'Выберите тип недели...',
+                maxItems: null,
+                options: Array.from(weekTypeSet).sort().map(w => ({value: w, text: w === 'числитель' ? 'Числитель' : 'Знаменатель'}))
+            });
 
             renderPatternHeatmap(currentData.pattern);
             renderPatternTable(currentData.pattern);
         }
 
-        function applyPatternFilters() {
-            const audSelect = document.getElementById('patternAuditoryFilter');
-            const typeSelect = document.getElementById('patternTypeFilter');
-            const daySelect = document.getElementById('patternDayFilter');
-            const weekSelect = document.getElementById('patternWeekTypeFilter');
+        function clearPatternFilters() {
+            TomSelect.getInstances().forEach(ts => ts.clear());
+            applyPatternFilters();
+        }
 
-            const selectedAud = Array.from(audSelect.selectedOptions).map(o => o.value);
-            const selectedTypes = Array.from(typeSelect.selectedOptions).map(o => o.value);
-            const selectedDays = Array.from(daySelect.selectedOptions).map(o => o.value);
-            const selectedWeeks = Array.from(weekSelect.selectedOptions).map(o => o.value);
+        function applyPatternFilters() {
+            const audSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'patternAuditoryFilter');
+            const typeSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'patternTypeFilter');
+            const daySelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'patternDayFilter');
+            const weekSelect = TomSelect.getInstances().find(ts => ts.control_input.id === 'patternWeekTypeFilter');
+
+            const selectedAud = audSelect?.getValue() || [];
+            const selectedTypes = typeSelect?.getValue() || [];
+            const selectedDays = daySelect?.getValue() || [];
+            const selectedWeeks = weekSelect?.getValue() || [];
 
             let filtered = currentData.pattern;
             if (selectedAud.length > 0) filtered = filtered.filter(p => selectedAud.includes(p['Аудитория']));
